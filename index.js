@@ -354,7 +354,10 @@ SSDP.prototype.server = function (ip, portno) {
 SSDP.prototype.stop = function () {
   this.advertise(false)
   this.advertise(false)
-  this.sock.close()
+  // this.sock.close()
+  chrome.sockets.udp.close(this.socketId, function(){
+    // console.log("Socket closed");
+  });
   this.sock = null;
 }
 

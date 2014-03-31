@@ -76,15 +76,21 @@ SSDP.prototype._start = function () {
     chrome.socket.bind(self.socketId, self._ssdpIp, self._ssdpPort, function (result) {
       self._logger.info('SSDP listening on ' + 'http://' + self._ssdpIp + ':' + self._ssdpPort);
     });
-
-    chrome.socket.recvFrom.addListener(self.socketId, function (info) {
-      // Convert info.data from ArrayBuffer to String.
-      var reader = new FileReader();
-      reader.onload = function (event) {
-        self._parseMessage(event.target.result, {address: info.remoteAddress, port: info.remotePort});
-      };
-      reader.readAsBinaryString(new Blob([info.data], { type: 'application/octet-stream' }));
-    });
+    var read = function () {
+      chrome.socket.recvFrom(self.socketId, function (info) {
+        if (recvFromInfo.resultCode >= 0) {
+          var reader = new FileReader();
+          reader.onload = function (event) {
+            self._parseMessage(event.target.result, {address: info.remoteAddress, port: info.remotePort});
+            read();
+          };
+          reader.readAsBinaryString(new Blob([info.data], { type: 'application/octet-stream' }));
+        } else {
+          // Err.
+        }
+      });
+    }
+    read();
   });
 
   // chrome.socket.onReceiveError.addListener(function (info) {
@@ -236,9 +242,16 @@ SSDP.prototype._inMSearch = function (st, rinfo) {
 
       self._logger.trace({'peer': peer, 'port': port}, 'Sending a 200 OK for an M-SEARCH')
 
-      var message = new Buffer(pkt)
+      // var message = new Buffer(pkt)
+      var objString = JSON.stringify(pkt);
+      var objArray = new Uint8Array(objString.length);
+      var objBuffer = objArray.buffer;
+       
+      for(var n = 0; n < objString.length; n++) {
+        objArray[n] = objString.charCodeAt(n);
+      }
 
-      chrome.socket.send(self.socketId, message, peer, port, function (err, bytes) {
+      chrome.socket.send(self.socketId, objBuffer, peer, port, function (err, bytes) {
 	self._logger.trace({'message': pkt}, 'Sent M-SEARCH response')
       })
     }
@@ -268,9 +281,16 @@ SSDP.prototype.search = function search(st) {
 
     self._logger.trace('Sending an M-SEARCH request')
 
-    var message = new Buffer(pkt)
+    // var message = new Buffer(pkt)
+    var objString = JSON.stringify(pkt);
+    var objArray = new Uint8Array(objString.length);
+    var objBuffer = objArray.buffer;
+     
+    for(var n = 0; n < objString.length; n++) {
+      objArray[n] = objString.charCodeAt(n);
+    }
 
-    chrome.socket.send(self.socketId, message, self._ssdpIp, self._ssdpPort, function (err, bytes) {
+    chrome.socket.send(self.socketId, objBuffer, self._ssdpIp, self._ssdpPort, function (err, bytes) {
       self._logger.trace({'message': pkt}, 'Sent M-SEARCH request')
     });
   })
@@ -368,9 +388,17 @@ SSDP.prototype.advertise = function (alive) {
 
     self._logger.trace('Sending an advertisement event')
 
-    var out = new Buffer(self.getSSDPHeader('NOTIFY', heads))
+    // var out = new Buffer(self.getSSDPHeader('NOTIFY', heads))
 
-    chrome.socket.send(self.socketId, out, self._ssdpIp, self._ssdpPort, function (err, bytes) {
+    var objString = self.getSSDPHeader('NOTIFY', heads);
+    var objArray = new Uint8Array(objString.length);
+    var objBuffer = objArray.buffer;
+     
+    for(var n = 0; n < objString.length; n++) {
+      objArray[n] = objString.charCodeAt(n);
+    }
+
+    chrome.socket.send(self.socketId, objBuffer, self._ssdpIp, self._ssdpPort, function (err, bytes) {
       self._logger.trace({'message': out.toString()}, 'Outgoing server message');
     });
   })

@@ -252,7 +252,7 @@ SSDP.prototype._inMSearch = function (st, rinfo) {
       }
 
       chrome.socket.send(self.socketId, objBuffer, peer, port, function (err, bytes) {
-	self._logger.trace({'message': pkt}, 'Sent M-SEARCH response')
+        self._logger.trace({'message': pkt}, 'Sent M-SEARCH response')
       })
     }
   })

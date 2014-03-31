@@ -398,9 +398,11 @@ SSDP.prototype.getSSDPHeader = function (head, vars, res) {
 
 
 function getSsdpSignature() {
-  var nodeVersion = process.version.substr(1)
-    , moduleVersion = require('./package.json').version
-    , moduleName = require('./package.json').name
+  // var nodeVersion = process.version.substr(1)
+  //   , moduleVersion = require('./package.json').version
+  //   , moduleName = require('./package.json').name
 
-  return 'node.js/' + nodeVersion + ' UPnP/1.1 ' + moduleName + '/' + moduleVersion
+  //return 'node.js/' + nodeVersion + ' UPnP/1.1 ' + moduleName + '/' + moduleVersion
+  //
+  return 'Chrome/34.0.1847.92 UPnP/1.1 chome-ssdp/0.0.1';
 }

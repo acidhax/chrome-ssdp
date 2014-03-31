@@ -1,13 +1,3 @@
-'use strict'
-
-var dgram = require('dgram')
-  , EE = require('events').EventEmitter
-  , dns = require('dns')
-  , os = require('os')
-  , util = require('util')
-  , Logger = require('./logger')
-
-
 var httpHeader = /HTTP\/\d{1}\.\d{1} \d+ .*/
   , ssdpHeader = /^([^:]+):\s*(.*)$/
 
@@ -36,22 +26,14 @@ function SSDP(opts) {
 
   opts = opts || {}
 
-  EE.call(self)
+  EventEmitter.call(this);
 
-  this._logger = Logger(opts)
+  this._logger = console;
 
-  this._init(opts)
-  this._start()
-
-  process.on('exit', function () {
-    self.stop()
-  })
+  this._init(opts);
+  this._start();
 }
-
-
-util.inherits(SSDP, EE)
-
-
+SSDP.prototype = Object.create(EventEmitter.prototype);
 
 /**
  * Initializes instance properties.
@@ -90,10 +72,14 @@ SSDP.prototype._start = function () {
 
   chrome.sockets.udp.create(function (createInfo) {
     self.socketId = createInfo.socketId;
+    chrome.sockets.udp.setMulticastTimeToLive(self.socketId, self._ssdpTtl);
+    chrome.sockets.udp.bind(self.socketId, self._ssdpIp, self._ssdpPort, function (result) {
+      self._logger.info('SSDP listening on ' + 'http://' + self._ssdpIp + ':' + self._ssdpPort);
+    });
   });
 
   chrome.sockets.udp.onReceiveError.addListener(function (info) {
-    self._logger.error(info, 'Socker error')
+    self._logger.error(info, 'Socket error');
   });
 
   chrome.sockets.udp.onReceive.addListener(function (info) {
@@ -105,12 +91,6 @@ SSDP.prototype._start = function () {
     reader.readAsBinaryString(new Blob([info.data], { type: 'application/octet-stream' }));
   });
 
-  // self.sock.addMembership(self._ssdpIp);
-  chrome.sockets.udp.setMulticastTimeToLive(self.socketId, self._ssdpTtl);
-  chrome.sockets.udp.bind(self.socketId, self._ssdpIp, self._ssdpPort, function (result) {
-    // var addr = self.sock.address();
-    self._logger.info('SSDP listening on ' + 'http://' + self._ssdpIp + ':' + self._ssdpPort);
-  });
 }
 
 
@@ -212,8 +192,6 @@ SSDP.prototype._msearch = function (headers, msg, rinfo) {
   this._inMSearch(headers['ST'], rinfo)
 }
 
-
-
 /**
  * Parses SSDP response message.
  *
@@ -308,42 +286,43 @@ SSDP.prototype.search = function search(st) {
  * @param [portno]
  */
 SSDP.prototype.server = function (ip, portno) {
-  var self = this
+  throw new Exception("Not supported");
+ //  var self = this
 
-  if (!portno) portno = '10293'
+ //  if (!portno) portno = '10293'
 
-  this._usns[this._udn] = this._udn
+ //  this._usns[this._udn] = this._udn
 
-  this._logger.trace('Will try to bind to ' + ip + ':' + this._ssdpPort)
+ //  this._logger.trace('Will try to bind to ' + ip + ':' + this._ssdpPort)
 
-  if (!ip || ip == '0.0.0.0') {
-    dns.lookup(os.hostname(), function (err, add) {
-      self._httphost = 'http://' + add + ':' + portno
-      bind()
-    })
-  } else {
-    this._httphost = 'http://' + ip + ':' + portno
-    bind()
-  }
+ //  if (!ip || ip == '0.0.0.0') {
+ //    dns.lookup(os.hostname(), function (err, add) {
+ //      self._httphost = 'http://' + add + ':' + portno
+ //      bind()
+ //    })
+ //  } else {
+ //    this._httphost = 'http://' + ip + ':' + portno
+ //    bind()
+ //  }
 
-  function bind() {
-    self.sock.bind(self._ssdpPort, ip, function () {
-      self._logger.info('UDP socket bound to ' + ip + ':' + self._ssdpPort)
+ //  function bind() {
+ //    self.sock.bind(self._ssdpPort, ip, function () {
+ //      self._logger.info('UDP socket bound to ' + ip + ':' + self._ssdpPort)
 
-      self.advertise(false)
+ //      self.advertise(false)
 
-      setTimeout(function () {
-	self.advertise(false)
-      }, 1000)
+ //      setTimeout(function () {
+	// self.advertise(false)
+ //      }, 1000)
 
-      // Wake up.
-      setTimeout(self.advertise.bind(self), 2000)
-      setTimeout(self.advertise.bind(self), 3000)
+ //      // Wake up.
+ //      setTimeout(self.advertise.bind(self), 2000)
+ //      setTimeout(self.advertise.bind(self), 3000)
 
-      // Ad loop.
-      setInterval(self.advertise.bind(self), 10000)
-    })
-  }
+ //      // Ad loop.
+ //      setInterval(self.advertise.bind(self), 10000)
+ //    })
+ //  }
 }
 
 
@@ -354,9 +333,7 @@ SSDP.prototype.server = function (ip, portno) {
 SSDP.prototype.stop = function () {
   this.advertise(false)
   this.advertise(false)
-  // this.sock.close()
   chrome.sockets.udp.close(this.socketId, function(){
-    // console.log("Socket closed");
   });
   this.sock = null;
 }
@@ -427,6 +404,3 @@ function getSsdpSignature() {
 
   return 'node.js/' + nodeVersion + ' UPnP/1.1 ' + moduleName + '/' + moduleVersion
 }
-
-
-module.exports = SSDP

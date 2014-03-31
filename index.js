@@ -70,26 +70,26 @@ SSDP.prototype._start = function () {
   // Configure socket for either client or server.
   self.responses = {}
 
-  chrome.sockets.udp.create(function (createInfo) {
+  chrome.socket.create('udp', function (createInfo) {
     self.socketId = createInfo.socketId;
-    chrome.sockets.udp.setMulticastTimeToLive(self.socketId, self._ssdpTtl);
-    chrome.sockets.udp.bind(self.socketId, self._ssdpIp, self._ssdpPort, function (result) {
+    chrome.socket.setMulticastTimeToLive(self.socketId, self._ssdpTtl);
+    chrome.socket.bind(self.socketId, self._ssdpIp, self._ssdpPort, function (result) {
       self._logger.info('SSDP listening on ' + 'http://' + self._ssdpIp + ':' + self._ssdpPort);
+    });
+
+    chrome.sockets.udp.onReceive.addListener(self.socketId, function (info) {
+      // Convert info.data from ArrayBuffer to String.
+      var reader = new FileReader();
+      reader.onload = function (event) {
+        self._parseMessage(event.target.result, {address: info.remoteAddress, port: info.remotePort});
+      };
+      reader.readAsBinaryString(new Blob([info.data], { type: 'application/octet-stream' }));
     });
   });
 
-  chrome.sockets.udp.onReceiveError.addListener(function (info) {
-    self._logger.error(info, 'Socket error');
-  });
-
-  chrome.sockets.udp.onReceive.addListener(function (info) {
-    // Convert info.data from ArrayBuffer to String.
-    var reader = new FileReader();
-    reader.onload = function (event) {
-      self._parseMessage(event.target.result, {address: info.remoteAddress, port: info.remotePort});
-    };
-    reader.readAsBinaryString(new Blob([info.data], { type: 'application/octet-stream' }));
-  });
+  // chrome.socket.onReceiveError.addListener(function (info) {
+  //   self._logger.error(info, 'Socket error');
+  // });
 
 }
 

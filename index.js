@@ -88,24 +88,29 @@ SSDP.prototype._start = function () {
   // Configure socket for either client or server.
   self.responses = {}
 
-  this.sock = dgram.createSocket('udp4')
+  chrome.sockets.udp.create(function (createInfo) {
+    self.socketId = createInfo.socketId;
+  });
 
-  this.sock.on('error', function (err) {
-    self._logger.error(err, 'Socker error')
-  })
+  chrome.sockets.udp.onReceiveError.addListener(function (info) {
+    self._logger.error(info, 'Socker error')
+  });
 
-  this.sock.on('message', function onMessage(msg, rinfo) {
-    self._parseMessage(msg, rinfo)
-  })
+  chrome.sockets.udp.onReceive.addListener(function (info) {
+    // Convert info.data from ArrayBuffer to String.
+    var reader = new FileReader();
+    reader.onload = function (event) {
+      self._parseMessage(event.target.result, {address: info.remoteAddress, port: info.remotePort});
+    };
+    reader.readAsBinaryString(new Blob([info.data], { type: 'application/octet-stream' }));
+  });
 
-  this.sock.on('listening', function onListening() {
-    var addr = self.sock.address()
-
-    self._logger.info('SSDP listening on ' + 'http://' + addr.address + ':' + addr.port)
-
-    self.sock.addMembership(self._ssdpIp)
-    self.sock.setMulticastTTL(self._ssdpTtl)
-  })
+  // self.sock.addMembership(self._ssdpIp);
+  chrome.sockets.udp.setMulticastTimeToLive(self.socketId, self._ssdpTtl);
+  chrome.sockets.udp.bind(self.socketId, self._ssdpIp, self._ssdpPort, function (result) {
+    // var addr = self.sock.address();
+    self._logger.info('SSDP listening on ' + 'http://' + self._ssdpIp + ':' + self._ssdpPort);
+  });
 }
 
 
@@ -117,8 +122,6 @@ SSDP.prototype._start = function () {
  * @param rinfo
  */
 SSDP.prototype._parseMessage = function (msg, rinfo) {
-  msg = msg.toString()
-
   this._logger.trace({message: '\n' + msg}, 'Multicast message')
 
   var type = msg.split('\r\n').shift()
@@ -257,7 +260,7 @@ SSDP.prototype._inMSearch = function (st, rinfo) {
 
       var message = new Buffer(pkt)
 
-      self.sock.send(message, 0, message.length, port, peer, function (err, bytes) {
+      chrome.sockets.udp.send(self.socketId, message, peer, port, function (err, bytes) {
 	self._logger.trace({'message': pkt}, 'Sent M-SEARCH response')
       })
     }
@@ -289,9 +292,9 @@ SSDP.prototype.search = function search(st) {
 
     var message = new Buffer(pkt)
 
-    self.sock.send(message, 0, message.length, self._ssdpPort, self._ssdpIp, function (err, bytes) {
+    chrome.sockets.udp.send(self.socketId, message, self._ssdpIp, self._ssdpPort, function (err, bytes) {
       self._logger.trace({'message': pkt}, 'Sent M-SEARCH request')
-    })
+    });
   })
 }
 
@@ -387,9 +390,9 @@ SSDP.prototype.advertise = function (alive) {
 
     var out = new Buffer(self.getSSDPHeader('NOTIFY', heads))
 
-    self.sock.send(out, 0, out.length, self._ssdpPort, self._ssdpIp, function (err, bytes) {
-      self._logger.trace({'message': out.toString()}, 'Outgoing server message')
-    })
+    chrome.sockets.udp.send(self.socketId, out, self._ssdpIp, self._ssdpPort, function (err, bytes) {
+      self._logger.trace({'message': out.toString()}, 'Outgoing server message');
+    });
   })
 }
 
